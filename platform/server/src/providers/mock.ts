@@ -30,7 +30,8 @@ export class MockProvider implements Provider {
   }
 
   async chat(modelId: string, req: ChatRequest): Promise<ChatResponse> {
-    await new Promise((r) => setTimeout(r, 150 + Math.random() * 350));
+    const delay = Number(process.env.OC_MOCK_DELAY_MS ?? 0) || 150 + Math.random() * 350;
+    await new Promise((r) => setTimeout(r, delay));
     const lastUser = [...req.messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     const input = req.messages.map((m) => m.content).join('\n');
 
