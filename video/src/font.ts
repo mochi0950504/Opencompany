@@ -5,7 +5,7 @@ import {continueRender, delayRender, staticFile} from 'remotion';
 export const fontFamily = "'Noto Sans TC', 'Noto Sans CJK TC', sans-serif";
 
 if (typeof document !== 'undefined') {
-  const handle = delayRender('load Noto Sans TC');
+  const handle = delayRender('load Noto Sans TC', {timeout: 120000});
   const font = new FontFace(
     'Noto Sans TC',
     `url('${staticFile('fonts/NotoSansTC.ttf')}') format('truetype')`,
