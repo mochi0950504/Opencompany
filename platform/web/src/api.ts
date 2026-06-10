@@ -1,4 +1,5 @@
 import type {
+  McpServer,
   MemoryRow,
   PlaybookRow,
   ProvidersResponse,
@@ -44,4 +45,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({status}),
     }),
+  mcpServers: () => request<McpServer[]>('/api/mcp'),
+  addMcpServer: (body: {name: string; command: string; args?: string[]}) =>
+    request<McpServer>('/api/mcp', {method: 'POST', body: JSON.stringify(body)}),
+  mcpAction: (id: number, action: 'enable' | 'disable' | 'refresh') =>
+    request<{ok: boolean}>(`/api/mcp/${id}/${action}`, {method: 'POST'}),
+  removeMcpServer: (id: number) =>
+    request<{ok: boolean}>(`/api/mcp/${id}`, {method: 'DELETE'}),
 };

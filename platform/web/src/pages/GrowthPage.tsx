@@ -1,16 +1,17 @@
 import {useCallback, useEffect, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
 import {api} from '../api';
-import type {MemoryRow, PlaybookRow, ToolRow} from '../types';
+import type {McpServer, MemoryRow, PlaybookRow, ToolRow} from '../types';
 import {ToolStatusBadge} from '../components/Badges';
 import {MEMORY_KIND_LABEL, fmtDateTime, timeAgo, truncate} from '../utils';
 
-type Tab = 'memories' | 'playbooks' | 'tools';
+type Tab = 'memories' | 'playbooks' | 'tools' | 'mcp';
 
 const TABS: Array<{key: Tab; label: string}> = [
   {key: 'memories', label: '記憶庫'},
   {key: 'playbooks', label: 'Playbooks'},
   {key: 'tools', label: '工具生態'},
+  {key: 'mcp', label: 'MCP 連接器'},
 ];
 
 function MemoriesTab() {
@@ -211,6 +212,163 @@ function ToolsTab() {
   );
 }
 
+const MCP_STATUS: Record<string, {label: string; color: string}> = {
+  connected: {label: '已連線', color: '#34D399'},
+  disconnected: {label: '未連線', color: '#94A3B8'},
+  error: {label: '錯誤', color: '#EF4444'},
+};
+
+function McpTab() {
+  const [rows, setRows] = useState<McpServer[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [command, setCommand] = useState('');
+  const [args, setArgs] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  const load = useCallback(() => {
+    api
+      .mcpServers()
+      .then((r) => {
+        setRows(r);
+        setError(null);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  async function add() {
+    if (!name.trim() || !command.trim() || adding) return;
+    setAdding(true);
+    try {
+      await api.addMcpServer({
+        name: name.trim(),
+        command: command.trim(),
+        args: args.trim() ? args.trim().split(/\s+/) : [],
+      });
+      setName('');
+      setCommand('');
+      setArgs('');
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function act(id: number, action: 'enable' | 'disable' | 'refresh') {
+    try {
+      await api.mcpAction(id, action);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function remove(id: number) {
+    if (!window.confirm('移除這個 MCP server？')) return;
+    try {
+      await api.removeMcpServer(id);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  return (
+    <div>
+      <div className="card grow-card">
+        <div className="grow-head">
+          <strong>新增 MCP server</strong>
+        </div>
+        <p className="grow-content dim">
+          掛載任何 stdio MCP server，其工具會自動加入調研編隊的工具箱（命名為
+          mcp__名稱__工具）。新增等同於在本機執行該指令——只加入你信任的來源。
+        </p>
+        <div className="field-row">
+          <label className="field">
+            <span>名稱（小寫英數）</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如 fetcher" />
+          </label>
+          <label className="field">
+            <span>指令</span>
+            <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="例如 npx" />
+          </label>
+          <label className="field">
+            <span>參數（空白分隔）</span>
+            <input value={args} onChange={(e) => setArgs(e.target.value)} placeholder="例如 -y @modelcontextprotocol/server-filesystem /data" />
+          </label>
+        </div>
+        <div className="action-row">
+          <button className="btn primary" disabled={!name.trim() || !command.trim() || adding} onClick={add}>
+            {adding ? '連線中…' : '新增並連線'}
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="alert error">{error}</div>}
+      {rows !== null && rows.length === 0 && <div className="empty">尚未掛載任何 MCP server。</div>}
+      <div className="stack">
+        {(rows ?? []).map((s) => {
+          const st = MCP_STATUS[s.status] ?? {label: s.status, color: '#94A3B8'};
+          return (
+            <div key={s.id} className="card grow-card">
+              <div className="grow-head">
+                <strong className="mono">{s.name}</strong>
+                <span className="badge" style={{borderColor: st.color, color: st.color}}>
+                  {st.label}
+                </span>
+                {!s.enabled && (
+                  <span className="badge" style={{borderColor: '#94A3B8', color: '#94A3B8'}}>
+                    已停用
+                  </span>
+                )}
+                <span className="dim push">{timeAgo(s.createdAt)}</span>
+              </div>
+              <p className="grow-content mono dim">
+                {s.command} {(JSON.parse(s.argsJson) as string[]).join(' ')}
+              </p>
+              {s.lastError && <div className="alert error">{s.lastError}</div>}
+              {s.tools.length > 0 && (
+                <div className="grow-meta">
+                  {s.tools.map((t) => (
+                    <span key={t.name} className="badge" title={t.description ?? ''} style={{borderColor: '#2DD4BF', color: '#2DD4BF'}}>
+                      {t.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="action-row">
+                {s.enabled ? (
+                  <button className="btn ghost small" onClick={() => act(s.id, 'disable')}>
+                    停用
+                  </button>
+                ) : (
+                  <button className="btn ghost small" onClick={() => act(s.id, 'enable')}>
+                    啟用
+                  </button>
+                )}
+                <button className="btn ghost small" onClick={() => act(s.id, 'refresh')}>
+                  重新連線
+                </button>
+                <button className="btn danger small" onClick={() => remove(s.id)}>
+                  移除
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function GrowthPage() {
   const [params, setParams] = useSearchParams();
   const tabParam = params.get('tab') as Tab | null;
@@ -238,6 +396,7 @@ export function GrowthPage() {
       {tab === 'memories' && <MemoriesTab />}
       {tab === 'playbooks' && <PlaybooksTab />}
       {tab === 'tools' && <ToolsTab />}
+      {tab === 'mcp' && <McpTab />}
     </div>
   );
 }

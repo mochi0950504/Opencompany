@@ -1,6 +1,7 @@
 import vm from 'node:vm';
 import {db, mapRows} from '../db.js';
 import {saveMemory, searchMemories} from '../growth/memory.js';
+import {mcpManager} from '../mcp/manager.js';
 import type {ToolRow, ToolSpec} from '../types.js';
 
 export interface ToolContext {
@@ -166,7 +167,7 @@ export function loadTools(): RuntimeTool[] {
 }
 
 export function toolSpecs(): ToolSpec[] {
-  return loadTools().map((t) => t.spec);
+  return [...loadTools().map((t) => t.spec), ...mcpManager.toolSpecs()];
 }
 
 export async function executeTool(
@@ -174,6 +175,7 @@ export async function executeTool(
   args: Record<string, unknown>,
   ctx: ToolContext
 ): Promise<string> {
+  if (mcpManager.owns(name)) return mcpManager.call(name, args);
   const tool = loadTools().find((t) => t.spec.name === name);
   if (!tool) return `錯誤：找不到工具 ${name}`;
   try {

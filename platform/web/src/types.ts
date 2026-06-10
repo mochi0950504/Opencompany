@@ -131,3 +131,23 @@ export interface TaskDetail {
   steps: StepRow[];
   artifacts: ArtifactRow[];
 }
+
+export interface McpToolDef {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface McpServer {
+  id: number;
+  name: string;
+  command: string;
+  argsJson: string;
+  envJson: string;
+  enabled: number;
+  status: 'connected' | 'disconnected' | 'error' | string;
+  lastError: string | null;
+  toolsJson: string;
+  createdAt: string;
+  tools: McpToolDef[];
+}

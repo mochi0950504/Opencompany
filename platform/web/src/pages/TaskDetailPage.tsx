@@ -153,6 +153,40 @@ export function TaskDetailPage() {
     return map;
   }, [detail]);
 
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function templateJson(): string {
+    if (!detail) return '{}';
+    try {
+      const cfg = JSON.parse(detail.task.configJson) as Record<string, unknown>;
+      return JSON.stringify(
+        {
+          title: detail.task.title,
+          goal: detail.task.goal,
+          instructions: cfg.instructions,
+          breadth: cfg.breadth,
+          budget: cfg.budget,
+          crew: cfg.crew,
+        },
+        null,
+        2
+      );
+    } catch {
+      return '{}';
+    }
+  }
+
+  async function copyTemplate() {
+    try {
+      await navigator.clipboard.writeText(templateJson());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // 非安全來源無剪貼簿權限——使用者可在文字框內全選複製
+    }
+  }
+
   async function action(kind: 'pause' | 'resume' | 'cancel') {
     if (!id || acting) return;
     setActing(true);
@@ -210,9 +244,35 @@ export function TaskDetailPage() {
                 取消
               </button>
             )}
+            <button className="btn ghost" onClick={() => setShowTemplate((v) => !v)}>
+              {showTemplate ? '隱藏範本' : '匯出範本'}
+            </button>
           </div>
         </div>
       </div>
+
+      {showTemplate && (
+        <section className="card template-card">
+          <div className="grow-head">
+            <strong>任務範本（JSON）</strong>
+            <span className="dim push">貼到「建立任務 → 匯入範本」即可重用這個編隊與預算配置</span>
+          </div>
+          <label className="field">
+            <textarea
+              className="mono"
+              readOnly
+              rows={12}
+              value={templateJson()}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+          </label>
+          <div className="action-row">
+            <button className="btn ghost small" onClick={copyTemplate}>
+              {copied ? '已複製 ✓' : '複製到剪貼簿'}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="section-title">管線進度</h2>

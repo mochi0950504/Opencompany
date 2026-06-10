@@ -5,6 +5,7 @@ import {existsSync} from 'node:fs';
 import {registerApi} from './api.js';
 import {runner} from './engine/runner.js';
 import {ensureDefaultPlaybook} from './growth/playbook.js';
+import {mcpManager} from './mcp/manager.js';
 import {ensureBuiltinTools} from './tools/runtime.js';
 
 const PORT = Number(process.env.OC_PORT ?? 4400);
@@ -32,6 +33,14 @@ async function main(): Promise<void> {
   console.log(`[opencompany] server on http://${HOST}:${PORT}`);
 
   runner.recover(); // resume interrupted tasks after restart
+  void mcpManager.init(); // connect enabled MCP servers in the background
+
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(sig, () => {
+      mcpManager.shutdown();
+      process.exit(0);
+    });
+  }
 }
 
 main().catch((e) => {

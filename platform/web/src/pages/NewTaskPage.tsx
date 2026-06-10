@@ -33,6 +33,43 @@ export function NewTaskPage() {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  function applyImport() {
+    try {
+      const t = JSON.parse(importText) as Record<string, unknown>;
+      if (typeof t.goal === 'string') setGoal(t.goal);
+      if (typeof t.title === 'string') setTitle(t.title);
+      if (typeof t.instructions === 'string') setInstructions(t.instructions);
+      if (typeof t.breadth === 'number') setBreadth(Math.min(6, Math.max(1, t.breadth)));
+      const b = (t.budget ?? {}) as Record<string, unknown>;
+      if (typeof b.maxSteps === 'number') setMaxSteps(b.maxSteps);
+      if (typeof b.maxMinutes === 'number') setMaxMinutes(b.maxMinutes);
+      if (typeof b.maxTokens === 'number') setMaxTokens(b.maxTokens);
+      if (Array.isArray(t.crew)) {
+        setCrew(
+          (t.crew as Array<Record<string, unknown>>)
+            .filter((m) => typeof m?.model === 'string')
+            .slice(0, MAX_CREW)
+            .map((m) => ({
+              name: typeof m.name === 'string' && m.name ? m.name : String(m.model),
+              model: String(m.model),
+              roles: Array.isArray(m.roles)
+                ? (m.roles.filter((r): r is RoleName =>
+                    (ALL_ROLES as readonly string[]).includes(String(r))
+                  ) as RoleName[])
+                : [],
+            }))
+        );
+      }
+      setImportMsg('已套用範本——請確認模型在本機可用後再送出。');
+      setShowImport(false);
+    } catch {
+      setImportMsg('JSON 解析失敗，請確認貼上的是「匯出範本」產生的內容。');
+    }
+  }
 
   useEffect(() => {
     api.providers().then(setData).catch((e: Error) => setLoadError(e.message));
@@ -122,7 +159,33 @@ export function NewTaskPage() {
           <h1>建立任務</h1>
           <p className="sub">設定目標、預算與最多 {MAX_CREW} 個模型的編隊</p>
         </div>
+        <div className="head-actions">
+          <button className="btn ghost" onClick={() => setShowImport((v) => !v)}>
+            {showImport ? '收合匯入' : '匯入範本'}
+          </button>
+        </div>
       </div>
+
+      {importMsg && <div className="alert">{importMsg}</div>}
+      {showImport && (
+        <section className="card">
+          <h2>匯入任務範本</h2>
+          <p className="sub dim">貼上任務詳情頁「匯出範本」產生的 JSON，會自動填入下方表單。</p>
+          <label className="field">
+            <textarea
+              rows={8}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder='{"goal":"…","crew":[…],"budget":{…}}'
+            />
+          </label>
+          <div className="action-row">
+            <button className="btn primary" disabled={!importText.trim()} onClick={applyImport}>
+              套用範本
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="wizard">
         <section className="card">

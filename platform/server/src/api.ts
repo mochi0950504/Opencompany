@@ -4,6 +4,7 @@ import {bus} from './events.js';
 import {runner} from './engine/runner.js';
 import {listMemories, searchMemories} from './growth/memory.js';
 import {activatePlaybook, activePlaybook, listPlaybooks} from './growth/playbook.js';
+import {mcpManager} from './mcp/manager.js';
 import {registry} from './providers/registry.js';
 import {listTools, setToolStatus} from './tools/runtime.js';
 import type {ArtifactRow, EventRow, StepRow, TaskBudget, TaskConfig} from './types.js';
@@ -114,6 +115,44 @@ export function registerApi(app: FastifyInstance): void {
   app.get('/api/playbooks', async () => listPlaybooks());
   app.post('/api/playbooks/:id/activate', async (req) => {
     activatePlaybook(Number((req.params as {id: string}).id));
+    return {ok: true};
+  });
+
+  // ---------- MCP connectors (open ecosystem) ----------
+
+  app.get('/api/mcp', async () => mcpManager.list());
+
+  app.post('/api/mcp', async (req, reply) => {
+    const body = req.body as {name?: string; command?: string; args?: string[]; env?: Record<string, string>};
+    if (!body?.name?.trim() || !body?.command?.trim()) {
+      return reply.code(400).send({error: 'name 與 command 為必填'});
+    }
+    try {
+      return mcpManager.add({
+        name: body.name.trim(),
+        command: body.command.trim(),
+        args: body.args ?? [],
+        env: body.env ?? {},
+      });
+    } catch (e) {
+      return reply.code(400).send({error: String(e instanceof Error ? e.message : e)});
+    }
+  });
+
+  app.post('/api/mcp/:id/enable', async (req) => {
+    await mcpManager.setEnabled(Number((req.params as {id: string}).id), true);
+    return {ok: true};
+  });
+  app.post('/api/mcp/:id/disable', async (req) => {
+    await mcpManager.setEnabled(Number((req.params as {id: string}).id), false);
+    return {ok: true};
+  });
+  app.post('/api/mcp/:id/refresh', async (req) => {
+    await mcpManager.connect(Number((req.params as {id: string}).id));
+    return {ok: true};
+  });
+  app.delete('/api/mcp/:id', async (req) => {
+    mcpManager.remove(Number((req.params as {id: string}).id));
     return {ok: true};
   });
 
