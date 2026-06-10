@@ -1,0 +1,13 @@
+{
+  "name": "opencompany-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenCompany — multi-model autonomous research platform (pick up to 4 models, runs for hours/days, grows as it works)",
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "test": "npm run test -w server"
+  }
+}

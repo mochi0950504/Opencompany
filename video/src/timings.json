@@ -1,0 +1,33 @@
+{
+  "fps": 30,
+  "segments": {
+    "s0": {
+      "seconds": 26.5,
+      "frames": 795
+    },
+    "s1": {
+      "seconds": 57.6,
+      "frames": 1728
+    },
+    "s2": {
+      "seconds": 40.68,
+      "frames": 1221
+    },
+    "s3": {
+      "seconds": 42.89,
+      "frames": 1287
+    },
+    "s4": {
+      "seconds": 45.53,
+      "frames": 1366
+    },
+    "s5": {
+      "seconds": 51.6,
+      "frames": 1548
+    },
+    "s6": {
+      "seconds": 26.16,
+      "frames": 785
+    }
+  }
+}
